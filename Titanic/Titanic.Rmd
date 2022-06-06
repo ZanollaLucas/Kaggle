@@ -1,0 +1,117 @@
+---
+title: "Titanic ML"
+author: "Lucas Zanolla"
+date: "06-06-2022"
+output: html_document
+---
+
+```{r, echo=FALSE, warning=FALSE}
+library(randomForest)
+library(BBmisc)
+```
+
+
+
+## READING DATA
+
+
+```{r}
+setwd("C:/Users/Dell/Desktop/Git/Kaggle/Titanic")
+
+titanic.train <- read.csv(file = "train.csv", stringsAsFactors = FALSE)
+
+titanic.test <- read.csv(file = "test.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+titanic.test$Survived <- NA
+titanic.test$IsTraingSet <- FALSE
+titanic.train$IsTraingSet <- TRUE
+titanic.full <- rbind(titanic.train, titanic.test)
+```
+
+```{r}
+summary(titanic.full)
+```
+
+
+Age have NA and Fare have NA, to fill those I'm going to use the mean of each category 
+
+```{r}
+#agemean <- round(mean(titanic.full$Age, na.rm = TRUE))
+#titanic.full[is.na(titanic.full$Age), "Age"] <- agemean
+
+age.equa = "Age ~  Pclass + Sex + SibSp + Parch + Fare + Embarked"
+
+age.model <- lm(
+  formula =  age.equa,
+  data = titanic.full
+)
+
+age.row <- titanic.full[is.na(titanic.full$Age), c("Pclass", "Sex", "SibSp" , "Parch" , "Fare" ,"Embarked")]
+
+Age.prediction <- predict(age.model, newdata = age.row)
+
+titanic.full[is.na(titanic.full$Age), "Age"] <- Age.prediction
+
+
+
+faremean <- round(mean(titanic.full$Fare, na.rm = TRUE))
+
+titanic.full[is.na(titanic.full$Fare), "Fare"] <- faremean
+
+titanic.full$Fare <- normalize(titanic.full$Fare)
+```
+
+
+Categorical casting
+```{r}
+#str(titanic.full)
+titanic.full$Pclass <- as.factor(titanic.full$Pclass)
+titanic.full$Sex <- as.factor(titanic.full$Sex)
+titanic.full$Embarked <- as.factor(titanic.full$Embarked)
+
+```
+
+
+
+After cleaning up the data using a merged data set to clean both at the same time, I've splitted them again to analyse and then make the Model
+
+```{r}
+titanic.train <- titanic.full[titanic.full$IsTraingSet==TRUE,]
+titanic.test <- titanic.full[titanic.full$IsTraingSet==FALSE,]
+
+```
+
+
+Casting survived as catgory
+
+```{r}
+titanic.train$Survived <- as.factor(titanic.train$Survived)
+```
+
+
+```{r}
+survive.eq <- "Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked"
+survive.form <- as.formula(survive.eq)
+titanic.model <- randomForest(formula = survive.form, data = titanic.train, 
+             ntree= 500, mtry = 3, nodesize = 0.01 * nrow(titanic.test))
+```
+
+
+
+```{r}
+features.equation <- "Pclass + Sex + Age + SibSp + Parch + Fare + Embarked"
+PassengerId <- titanic.test$PassengerId
+output.df <- as.data.frame(PassengerId)
+Survived <- predict(titanic.model, newdata= titanic.test)
+output.df$Survived <- Survived
+```
+
+
+```{r}
+write.csv(output.df, file = "Second_Submission.csv", row.names = FALSE)
+```
+
+
+
